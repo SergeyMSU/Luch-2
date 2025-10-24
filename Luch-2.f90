@@ -14,16 +14,16 @@
 
 module PARAMETRS
 	USE OMP_LIB
-	integer(4) :: GD_par_n_points = 500 !400
-	real(8) :: par_L = -1.0_8 !-5.0_8
-	real(8) :: par_R = 0.0_8
-	real(8) :: Mach_inf = 1.1_8  !2.0
+	integer(4) :: GD_par_n_points = 100 !400
+	real(8) :: par_L = 0.0_8 !-5.0_8
+	real(8) :: par_R = 1.0_8
+	real(8) :: Mach_inf = 2.0_8  !2.0
 
 	real(8) :: ddx = 0.0_8
 
 	real(8), parameter :: par_Velosity_inf = -2.54351! -1.0 !-2.58_8
 	real(8), parameter :: par_a_2 = 0.13043_8 ! 0.13043_8 
-	real(8) :: par_n_H = 1.0_8 
+	real(8) :: par_n_H = 3_8 
 
 	real(8), parameter :: par_pi_8 = acos(-1.0_8)         
 	real(8), parameter :: par_pi = acos(-1.0_8)         
@@ -48,6 +48,10 @@ module PARAMETRS
 	real(8), allocatable :: mas_vy_H(:)
 	real(8), allocatable :: mas_vz_H(:)
 	real(8), allocatable :: mas_T_H(:)
+
+	real(8), allocatable :: mas_n_H2(:)
+	real(8), allocatable :: mas_v_H2(:)
+	real(8), allocatable :: mas_T_H2(:)
 
 	integer (kind=omp_lock_kind), allocatable :: mas_lock(:)
 
@@ -187,6 +191,10 @@ module Monte_Karlo
 		ALLOCATE(mas_vy_H(GD_par_n_points))
 		ALLOCATE(mas_vz_H(GD_par_n_points))
 		ALLOCATE(mas_T_H(GD_par_n_points))
+
+		ALLOCATE(mas_n_H2(GD_par_n_points))
+		ALLOCATE(mas_v_H2(GD_par_n_points))
+		ALLOCATE(mas_T_H2(GD_par_n_points))
 
 		mas_n_H = 0.0
 		mas_v_H = 0.0
@@ -993,10 +1001,10 @@ module GD
 		integer(4) :: i
 
 		open(1, file = 'Print_MK.txt')
-		write(1,*) "TITLE = 'HP'  VARIABLES = X, n_H"
+		write(1,*) "TITLE = 'HP'  VARIABLES = X, n_H4, u_H4, T_H4, n_H3, u_H3, T_H3"
 
 		do i = 1, GD_par_n_points
-			write(1,*) GD_mas_X(i), mas_n_H(i)
+			write(1,*) GD_mas_X(i), mas_n_H(i), mas_v_H(i), mas_T_H(i), mas_n_H2(i), mas_v_H2(i), mas_T_H2(i)
 		end do
 
 		close(1)
@@ -1065,8 +1073,8 @@ module GD
 		
 	end subroutine Start_right_GD
 
-	subroutine MK_ADD_MOMENT2(potok, cell, time, mu, VV, Source)
-		integer(4), intent(in) :: cell, potok
+	subroutine MK_ADD_MOMENT2(potok, cell, time, mu, VV, sort, Source)
+		integer(4), intent(in) :: cell, potok, sort
 		real(8), intent(in) :: time, VV(3), mu
 		logical, intent(in) :: Source
 		real(8) :: cp, vx, vy, vz, u, u1, u2, u3, skalar, uz, uz_M, uz_E, k1, k2, k3
@@ -1074,9 +1082,16 @@ module GD
 
 		! Моменты функции распределения
 		call omp_set_lock(mas_lock(cell))
-		mas_n_H(cell) = mas_n_H(cell) + time * mu
-		mas_v_H(cell) = mas_v_H(cell) + time * mu * VV(1)
-		mas_T_H(cell) = mas_T_H(cell) + time * mu * kvv(VV(1), VV(2), VV(3))
+
+		if(sort == 4) then
+			mas_n_H(cell) = mas_n_H(cell) + time * mu
+			mas_v_H(cell) = mas_v_H(cell) + time * mu * VV(1)
+			mas_T_H(cell) = mas_T_H(cell) + time * mu * kvv(VV(1), VV(2), VV(3))
+		else
+			mas_n_H2(cell) = mas_n_H2(cell) + time * mu
+			mas_v_H2(cell) = mas_v_H2(cell) + time * mu * VV(1)
+			mas_T_H2(cell) = mas_T_H2(cell) + time * mu * kvv(VV(1), VV(2), VV(3))
+		end if
 
 		if(.True.) then
 			!call Dist_funk(VV(1), time * mu, int((cell - 1)/1) + 1)
@@ -1229,16 +1244,17 @@ module GD
 		close(1)
 	end subroutine Proverka_source
 
-	subroutine MK_FLY(potok, VVx0, VVy0, VVz0, x0, cell_0, mu)
+	subroutine MK_FLY(potok, VVx0, VVy0, VVz0, x0, cell_0, mu, sort_)
 		! cell - текущая ячейка частицы
 		real(8), intent(in) :: VVx0, VVy0, VVz0, x0, mu
-		integer(4), intent(in) :: cell_0, potok
+		integer(4), intent(in) :: cell_0, potok, sort_
 
 		real(8) :: ro, p, vx, cp, vy, vz, time, uz, Wr_, Wthe_, Wphi_, I_do, x, VVx, VVy, VVz, KSI
 		real(8) :: L, R, time1, time2, nu_ex, lenght
 		real(8) :: skalar, u, u1, u2, u3, sig, II, t_ex, x_ex, ksi1, VV(3)
-		integer(4) :: next, cell
+		integer(4) :: next, cell, sort
 
+		sort = sort_
 		I_do = 0.0
 		cell = cell_0
 		x = x0
@@ -1280,12 +1296,14 @@ module GD
 				CYCLE
 			end if
 
-			vx = -0.963449!! GD_mas_V(cell)
+			vx = -2.5_8!! GD_mas_V(cell)
 			vy = 0.0
 			vz = 0.0
-			ro = 1.0!! -1.0/vx
-			p = 3.06593096_8!!GD_mas_P(cell)
+			ro = 1.0_8!! -1.0/vx
+			p = 0.333333_8!!GD_mas_P(cell)
+
 			cp = sqrt(p/ro)
+
 			u = sqrt(kvv(VVx - vx, VVy - vy, VVz - vz))
 			u1 =  vx - VVx
 			u2 =  vy - VVy
@@ -1312,7 +1330,7 @@ module GD
 				VV(1) = VVx
 				VV(2) = VVy
 				VV(3) = VVz
-				call MK_ADD_MOMENT2(potok, cell, time, mu, VV, Source = .False.)
+				call MK_ADD_MOMENT2(potok, cell, time, mu, VV, sort, Source = .False.)
 				!print*, time, mu
 				!pause
 
@@ -1351,7 +1369,7 @@ module GD
 				VV(1) = VVx
 				VV(2) = VVy
 				VV(3) = VVz
-				call MK_ADD_MOMENT2(potok, cell, t_ex, mu, VV, Source = .True.)
+				call MK_ADD_MOMENT2(potok, cell, t_ex, mu, VV, sort, Source = .True.)
 
 
 				call M_K_Change_Velosity4(potok, vx/cp, vy/cp, vz/cp, &
@@ -1360,6 +1378,7 @@ module GD
 				VVy = Wthe_ * cp
 				VVz = Wphi_ * cp
 				
+				sort = 3
 				!print*, VVx, VVy, VVz
 				!pause
 
@@ -1381,13 +1400,18 @@ module GD
 		integer(4) :: potok, i, Num, no, Num1, Num2, step
 		
 		potok = 1
-		Num1 = 10000000! 1000000 * 30! 30! 20! 25! * 32 * 4! * 32! * 32 * 2
+		Num1 = 100000! 1000000 * 30! 30! 20! 25! * 32 * 4! * 32! * 32 * 2
 		Num2 = 0! 1000000 * 10! 10! * 16 * 4! * 16! * 40
 		Num = Num1 + Num2
 
 		mas_n_H = 0.0
 		mas_v_H = 0.0
 		mas_T_H = 0.0
+
+		mas_n_H2 = 0.0
+		mas_v_H2 = 0.0
+		mas_T_H2 = 0.0
+
 		GD_mas_Q2 = 0.0
 		GD_mas_Q3 = 0.0
 		dist_f = 0.0
@@ -1396,8 +1420,8 @@ module GD
 		dist_2D_f3 = 0.0
 
 		! Сначала для вылета справа
-		Ux = -3.0!! par_Velosity_inf
-		cp = 1.0! sqrt(-GD_mas_P(GD_par_n_points) * GD_mas_V(GD_par_n_points))
+		Ux = -2.5!! par_Velosity_inf
+		cp = 0.57735! sqrt(-GD_mas_P(GD_par_n_points) * GD_mas_V(GD_par_n_points))
 		S1 = 0.5 * (cp * exp(-Ux**2/cp**2)/sqrtpi - Ux + Ux * erf(Ux/cp))
 		!print*, cp, Ux, S1 
 
@@ -1414,8 +1438,8 @@ module GD
 
 		print*, "Mu = ", mu1, mu2
 		
-		Ux = -3.0!! par_Velosity_inf
-		cp = 1.0!
+		Ux = -2.5!! par_Velosity_inf
+		cp = 0.57735! sqrt(-GD_mas_P(GD_par_n_points) * GD_mas_V(GD_par_n_points))
 		step = 1
 
 		call omp_set_num_threads(par_n_potok)
@@ -1438,10 +1462,10 @@ module GD
 			Vx = Vx * cp
 			Vy = Vy * cp
 			Vz = Vz * cp
-			!!call MK_FLY(potok, Vx, Vy, Vz, X, GD_par_n_points, mu1)
+			call MK_FLY(potok, Vx, Vy, Vz, X, GD_par_n_points, mu1, 4)
 
 			!! Сразу накопим функцию распределения
-			call Dist_funk(Vx, -1.0/Vx, 1)
+			! call Dist_funk(Vx, -1.0/Vx, 1)
 		end do
 		! !$omp end do
 
@@ -1469,7 +1493,7 @@ module GD
 			Vy = Vy * cp
 			Vz = Vz * cp
 			!call Dist_funk(Vx, mu2)
-			call MK_FLY(potok, Vx, Vy, Vz, X, 1, mu2)
+			call MK_FLY(potok, Vx, Vy, Vz, X, 1, mu2, 4)
 		end do
 		! !$omp end do
 
@@ -1479,7 +1503,7 @@ module GD
 		!print*, "Ux = ", Ux, cp
 
 		!! ТУТ НИЖЕ ДОБАВИТЬ
-		no = Num!! * (GD_mas_X(2) - GD_mas_X(1))  ! ДОБАВИТЬ
+		no = Num * (GD_mas_X(2) - GD_mas_X(1))  ! ДОБАВИТЬ
 		dist_f = dist_f * S/(no)/((vR - vL)/vN)
 		dist_2D_f1 = dist_2D_f1 * S/(no)/((vR - vL)/vN)/((wR - wL)/vN)
 		dist_2D_f2 = dist_2D_f2 * S/(no)/((vR - vL)/vN)/((wR - wL)/vN)
@@ -1489,12 +1513,20 @@ module GD
 		mas_v_H = S * mas_v_H/(no)
 		mas_T_H = S * mas_T_H/(no)
 
+		mas_n_H2 = S * mas_n_H2/(no)
+		mas_v_H2 = S * mas_v_H2/(no)
+		mas_T_H2 = S * mas_T_H2/(no)
+
 		do i = 1, size(mas_n_H)
 			mas_v_H(i) = mas_v_H(i)/mas_n_H(i)
-			mas_T_H(i) = (1.0/3.0) * (mas_T_H(i)/mas_n_H(i) - mas_v_H(i)**2)
+			mas_T_H(i) = 2.0 * (1.0/3.0) * (mas_T_H(i)/mas_n_H(i) - mas_v_H(i)**2)
+
+			mas_v_H2(i) = mas_v_H2(i)/mas_n_H2(i)
+			mas_T_H2(i) = 2.0 * (1.0/3.0) * (mas_T_H2(i)/mas_n_H2(i) - mas_v_H2(i)**2)
 		end do
 
 		mas_n_H = par_n_H * mas_n_H
+		mas_n_H2 = par_n_H * mas_n_H2
 		GD_mas_Q2 = par_n_H * S * GD_mas_Q2/(no)
 		GD_mas_Q3 = par_n_H * S * GD_mas_Q3/(no)
 
@@ -1674,32 +1706,11 @@ program Luch2
 
 	call Print_GD()
 
-	! pause
-	! Mach_inf = 1.3_8
-	! par_n_H = 1.95_8
-	kk = 0
-	do step = 1, 1
-		kk = kk + 1
-		print*, "M-K ", step, "nH ", par_n_H
-		call Start_MK()
-		print*, "G-D", step
-		! call Start_right_GD()
+	call Start_MK()
+	call Save_all(step)
+	call Print_GD(step)
+	call Print_MK()
 
-		call Save_all(step)
-		call Print_GD(step)
-
-		if(mod(kk, 5) == 0) then
-			par_n_H = par_n_H + 0.025
-			print*, "MENYAEM nH", par_n_H
-		end if
-
-		! if(par_n_H < 4.99_8) then
-		! 	par_n_H = par_n_H + 0.07
-		! else
-		! 	par_n_H = 5.0_8
-		! end if
-
-	end do
 
 	print*, "END"
 
