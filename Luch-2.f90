@@ -14,16 +14,16 @@
 
 module PARAMETRS
 	USE OMP_LIB
-	integer(4) :: GD_par_n_points = 800 !400
-	real(8) :: par_L = -4.0_8 !-5.0_8
-	real(8) :: par_R = 2.5_8
+	integer(4) :: GD_par_n_points = 500 !400
+	real(8) :: par_L = -1.0_8 !-5.0_8
+	real(8) :: par_R = 0.0_8
 	real(8) :: Mach_inf = 1.1_8  !2.0
 
 	real(8) :: ddx = 0.0_8
 
-	real(8), parameter :: par_Velosity_inf = -1.0 !-2.58_8
-	real(8), parameter :: par_a_2 = 0.13043_8 
-	real(8) :: par_n_H = 0.1_8 
+	real(8), parameter :: par_Velosity_inf = -2.54351! -1.0 !-2.58_8
+	real(8), parameter :: par_a_2 = 0.13043_8 ! 0.13043_8 
+	real(8) :: par_n_H = 1.0_8 
 
 	real(8), parameter :: par_pi_8 = acos(-1.0_8)         
 	real(8), parameter :: par_pi = acos(-1.0_8)         
@@ -64,9 +64,9 @@ module Monte_Karlo
 	real(8), parameter :: x0 = -0.5_8
 	
 	real(8), allocatable :: dist_f(:, :)
-	real(8) :: vL = -2.5                  ! Ћучше симметричные концы, чтобы ноль был границей €чейки (или переделывать)
-	real(8) :: vR = 2.5
-	integer(4) :: vN = 1!224   !! 1 если не хотим считать
+	real(8) :: vL = -6.0! -4.5                  ! Ћучше симметричные концы, чтобы ноль был границей €чейки (или переделывать)
+	real(8) :: vR = 4.0! 3.5
+	integer(4) :: vN = 224! 224!224   !! 1 если не хотим считать
 
 	real(8), allocatable :: dist_2D_f1(:, :)
 	real(8) :: wL = 0.0                  ! Ћучше симметричные концы, чтобы ноль был границей €чейки (или переделывать)
@@ -93,7 +93,12 @@ module Monte_Karlo
 		integer :: n1, i, cell
 		
 		dd = (vR - vL)/vN
-		i = INT(100.0 + (Vx - vL)/dd) - 100
+		i = INT(100.0 + (Vx - vL)/dd) - 99
+
+		! print*, (vL + (i - 0.5) * (vR - vL)/vN), Vx
+		! print*, (vL + (i - 1 - 0.5) * (vR - vL)/vN), (vL + (i - 0.5) * (vR - vL)/vN), (vL + (i + 1 - 0.5) * (vR - vL)/vN)
+		! print*, "___"
+		! pause
 
 		if(i < 1) return !i = 1
 		if(i > vN) return !i = vN
@@ -385,13 +390,17 @@ module Monte_Karlo
 		real(8), intent(in) :: x
 		real(8) :: MK_sigma
 	
-		MK_sigma = (1.0 - par_a_2 * log(x))**2
+		!MK_sigma = (1.0 - par_a_2 * log(x))**2
+		!MK_sigma = (1.0 - 0.135838_8 * log(x/1.33301_8))**2
+		MK_sigma = 1.0_8
 	end function MK_sigma
 	
 	real(8) pure function MK_sigma2(x, y)
 		real(8), intent (in) :: x, y
 		
-		MK_sigma2 = (1.0 - par_a_2 * log(x * y))**2
+		!MK_sigma2 = (1.0 - par_a_2 * log(x * y))**2
+		MK_sigma2 = (1.0 - 0.135838_8 * log(x * y/1.33301_8))**2
+		!MK_sigma2 = 1.0_8
 	end function MK_sigma2
 	
 	real(8) pure function MK_Velosity_1(u, cp)
@@ -739,13 +748,15 @@ module GD
 		a2 = 2 * ggg * Mach_inf**2 / (ggg + 1) - (ggg - 1)/(ggg + 1)
 
 		do i = 1, GD_par_n_points
-			if (GD_mas_X(i) < 0.0) then !(.False.) then!
-				GD_mas_P(i) = 1.0/(Mach_inf**2 * ggg) * a2
-				GD_mas_V(i) = par_Velosity_inf/ a1
-			else
-				GD_mas_V(i) = par_Velosity_inf
-				GD_mas_P(i) = 1.0/(Mach_inf**2 * ggg)
-			end if
+			! if (GD_mas_X(i) < 0.0) then !(.False.) then!
+			! 	GD_mas_P(i) = 1.0/(Mach_inf**2 * ggg) * a2
+			! 	GD_mas_V(i) = par_Velosity_inf/ a1
+			! else
+			! 	GD_mas_V(i) = par_Velosity_inf
+			! 	GD_mas_P(i) = 1.0/(Mach_inf**2 * ggg)
+			! end if
+			GD_mas_P(i) = 0.3
+			GD_mas_V(i) = -0.33333333333
 		end do
 
 		GD_mas_Q2 = 0.0
@@ -1067,7 +1078,7 @@ module GD
 		mas_v_H(cell) = mas_v_H(cell) + time * mu * VV(1)
 		mas_T_H(cell) = mas_T_H(cell) + time * mu * kvv(VV(1), VV(2), VV(3))
 
-		if(.False.) then
+		if(.True.) then
 			!call Dist_funk(VV(1), time * mu, int((cell - 1)/1) + 1)
 			call Dist_funk(VV(1), time * mu, cell)
 		end if
@@ -1269,11 +1280,11 @@ module GD
 				CYCLE
 			end if
 
-			vx = GD_mas_V(cell)
+			vx = -0.963449!! GD_mas_V(cell)
 			vy = 0.0
 			vz = 0.0
-			ro = -1.0/vx
-			p = GD_mas_P(cell)
+			ro = 1.0!! -1.0/vx
+			p = 3.06593096_8!!GD_mas_P(cell)
 			cp = sqrt(p/ro)
 			u = sqrt(kvv(VVx - vx, VVy - vy, VVz - vz))
 			u1 =  vx - VVx
@@ -1283,7 +1294,7 @@ module GD
 			II = I_do
 			lenght = sqrt(kvv(VVx * time, VVy * time, VVz * time))
 
-			if (u / cp > 7.0) then
+			if (.True.) then!(u / cp > 7.0) then
 				uz = MK_Velosity_1(u, cp)
 				nu_ex = (ro * uz * MK_sigma(uz))
 			else
@@ -1370,8 +1381,8 @@ module GD
 		integer(4) :: potok, i, Num, no, Num1, Num2, step
 		
 		potok = 1
-		Num1 = 1000000 * 30! 30! 20! 25! * 32 * 4! * 32! * 32 * 2
-		Num2 = 1000000 * 10! 10! * 16 * 4! * 16! * 40
+		Num1 = 10000000! 1000000 * 30! 30! 20! 25! * 32 * 4! * 32! * 32 * 2
+		Num2 = 0! 1000000 * 10! 10! * 16 * 4! * 16! * 40
 		Num = Num1 + Num2
 
 		mas_n_H = 0.0
@@ -1385,15 +1396,16 @@ module GD
 		dist_2D_f3 = 0.0
 
 		! —начала дл€ вылета справа
-		Ux = par_Velosity_inf
-		cp = sqrt(-GD_mas_P(GD_par_n_points) * GD_mas_V(GD_par_n_points))
+		Ux = -3.0!! par_Velosity_inf
+		cp = 1.0! sqrt(-GD_mas_P(GD_par_n_points) * GD_mas_V(GD_par_n_points))
 		S1 = 0.5 * (cp * exp(-Ux**2/cp**2)/sqrtpi - Ux + Ux * erf(Ux/cp))
 		!print*, cp, Ux, S1 
 
 		! ƒл€ вылета слева
 		Ux = GD_mas_V(1)
 		cp = sqrt(-GD_mas_P(1) * GD_mas_V(1))
-		S2 = 0.5 * (cp * exp(-Ux**2/cp**2)/sqrtpi + Ux + Ux * erf(Ux/cp)) * (-1.0/Ux)
+		S2 = 0.0!!0.5 * (cp * exp(-Ux**2/cp**2)/sqrtpi + Ux + Ux * erf(Ux/cp)) * (-1.0/Ux)
+
 		!print*, cp, Ux , S2
 		
 		S = S1 + S2
@@ -1402,14 +1414,15 @@ module GD
 
 		print*, "Mu = ", mu1, mu2
 		
-		Ux = GD_mas_V(GD_par_n_points)
-		cp = sqrt(-GD_mas_P(GD_par_n_points) * GD_mas_V(GD_par_n_points))
+		Ux = -3.0!! par_Velosity_inf
+		cp = 1.0!
 		step = 1
 
 		call omp_set_num_threads(par_n_potok)
-		!$omp parallel
-		!$omp do private(X, Vx, Vy, Vz, potok)
+		! !$omp parallel
+		! !$omp do private(X, Vx, Vy, Vz, potok)
 		do i = 1, Num1
+			if(mod(i, 100000) == 0) print*, "I = ", i
 			potok = (omp_get_thread_num() + 1) 
 
 			! !$omp critical
@@ -1419,26 +1432,31 @@ module GD
 			
 
 			X = par_R - 0.000001
+
+
 			call MK_Velosity_initial2(potok, Vx, Vy, Vz, Ux/cp)
 			Vx = Vx * cp
 			Vy = Vy * cp
 			Vz = Vz * cp
-			call MK_FLY(potok, Vx, Vy, Vz, X, GD_par_n_points, mu1)
+			!!call MK_FLY(potok, Vx, Vy, Vz, X, GD_par_n_points, mu1)
+
+			!! —разу накопим функцию распределени€
+			call Dist_funk(Vx, -1.0/Vx, 1)
 		end do
-		!$omp end do
+		! !$omp end do
 
-		!$omp barrier
+		! !$omp barrier
 
-		!$omp single
+		! !$omp single
 		!print*, "Ux = ", Ux, cp
 		Ux = GD_mas_V(1)
 		cp = sqrt(-GD_mas_P(1) * GD_mas_V(1))
 		step = 1
-		!$omp end single
+		! !$omp end single
 
-		!$omp barrier
+		! !$omp barrier
 
-		!$omp do private(X, Vx, Vy, Vz, potok)
+		! !$omp do private(X, Vx, Vy, Vz, potok)
 		do i = 1, Num2
 			potok = (omp_get_thread_num() + 1) 
 			! !$omp critical
@@ -1453,12 +1471,15 @@ module GD
 			!call Dist_funk(Vx, mu2)
 			call MK_FLY(potok, Vx, Vy, Vz, X, 1, mu2)
 		end do
-		!$omp end do
-		!$omp end parallel
+		! !$omp end do
+
+
+		! !$omp end parallel
 
 		!print*, "Ux = ", Ux, cp
 
-		no = Num * (GD_mas_X(2) - GD_mas_X(1))
+		!! “”“ Ќ»∆≈ ƒќЅј¬»“№
+		no = Num!! * (GD_mas_X(2) - GD_mas_X(1))  ! ƒќЅј¬»“№
 		dist_f = dist_f * S/(no)/((vR - vL)/vN)
 		dist_2D_f1 = dist_2D_f1 * S/(no)/((vR - vL)/vN)/((wR - wL)/vN)
 		dist_2D_f2 = dist_2D_f2 * S/(no)/((vR - vL)/vN)/((wR - wL)/vN)
@@ -1509,15 +1530,22 @@ module GD
 		!print*, "END 1 = ", S, no, Num, (GD_mas_X(2) - GD_mas_X(1)), GD_mas_Q2(100)
 		!print*, "END 2 = ", mas_n_H(1), mas_n_H(10)
 
-		! open(1, file = "Dist_funk.txt")
-		
-		! do i = 1, vN
-		! 	Ux = GD_mas_V(1)
-		! 	cp = sqrt(-GD_mas_P(1) * GD_mas_V(1))
-		! 	ro = -1.0/Ux
-		! 	u = (vL + (i - 0.5) * (vR - vL)/vN)
-		! 	WRITE (1, *) u, dist_f(i) * S/Num/((vR - vL)/vN), ro * 1.0/(cp * par_sqrtpi) * exp(-(u - Ux)**2 / (cp)**2)
-		! end do
+		open(1, file = "Dist_funk.txt")
+	
+		write(1, *)  "TITLE = 'HP'  VARIABLES = Vx, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, fp, ftest"
+		do i = 1, vN
+			Ux = -0.963449!GD_mas_V(1)
+			cp = 1.75098!sqrt(-GD_mas_P(1) * GD_mas_V(1))
+			ro = 1.0! -1.0/Ux
+			u = (vL + (i - 0.5) * (vR - vL)/vN)
+			if(u > 0) then
+				WRITE (1, *) u, dist_f(i, 1), dist_f(i, 50), dist_f(i, 100), dist_f(i, 150), dist_f(i, 200), dist_f(i, 250), dist_f(i, 300),&
+				dist_f(i, 350), dist_f(i, 400), dist_f(i, 450), ro * 1.0/(cp * par_sqrtpi) * exp(-(u - Ux)**2 / (cp)**2), 0.0
+			else
+				WRITE (1, *) u, dist_f(i, 1), dist_f(i, 50), dist_f(i, 100), dist_f(i, 150), dist_f(i, 200), dist_f(i, 250), dist_f(i, 300),&
+				dist_f(i, 350), dist_f(i, 400), dist_f(i, 450), ro * 1.0/(cp * par_sqrtpi) * exp(-(u - Ux)**2 / (cp)**2), exp(-(u + 3.0)**2)/1.77243
+			end if
+		end do
 		
 
 	end subroutine Start_MK
@@ -1638,24 +1666,24 @@ program Luch2
 	USE GD
 	integer(4) :: step, kk
 
-	! call Set_GD()
-	! call M_K_Set()
-	! call Get_sensor_sdvig(0)
+	call Set_GD()
+	call M_K_Set()
+	call Get_sensor_sdvig(0)
 
-	call Read_all(203)
+	! call Read_all(203)
 
 	call Print_GD()
 
 	! pause
-	Mach_inf = 1.3_8
-	par_n_H = 1.95_8
+	! Mach_inf = 1.3_8
+	! par_n_H = 1.95_8
 	kk = 0
-	do step = 204, 500
+	do step = 1, 1
 		kk = kk + 1
 		print*, "M-K ", step, "nH ", par_n_H
 		call Start_MK()
 		print*, "G-D", step
-		call Start_right_GD()
+		! call Start_right_GD()
 
 		call Save_all(step)
 		call Print_GD(step)
