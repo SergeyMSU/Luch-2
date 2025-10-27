@@ -14,9 +14,9 @@
 
 module PARAMETRS
 	USE OMP_LIB
-	integer(4) :: GD_par_n_points = 100 !400
+	integer(4) :: GD_par_n_points = 300 !400
 	real(8) :: par_L = 0.0_8 !-5.0_8
-	real(8) :: par_R = 1.0_8
+	real(8) :: par_R = 3.0_8
 	real(8) :: Mach_inf = 2.0_8  !2.0
 
 	real(8) :: ddx = 0.0_8
@@ -1299,8 +1299,8 @@ module GD
 			vx = -2.5_8!! GD_mas_V(cell)
 			vy = 0.0
 			vz = 0.0
-			ro = 1.0_8!! -1.0/vx
-			p = 0.333333_8!!GD_mas_P(cell)
+			ro = 2.0_8!! -1.0/vx
+			p = 3.0_8!!GD_mas_P(cell)
 
 			cp = sqrt(p/ro)
 
@@ -1400,7 +1400,7 @@ module GD
 		integer(4) :: potok, i, Num, no, Num1, Num2, step
 		
 		potok = 1
-		Num1 = 100000! 1000000 * 30! 30! 20! 25! * 32 * 4! * 32! * 32 * 2
+		Num1 = 400000! 1000000 * 30! 30! 20! 25! * 32 * 4! * 32! * 32 * 2
 		Num2 = 0! 1000000 * 10! 10! * 16 * 4! * 16! * 40
 		Num = Num1 + Num2
 
@@ -1421,7 +1421,7 @@ module GD
 
 		! Сначала для вылета справа
 		Ux = -2.5!! par_Velosity_inf
-		cp = 0.57735! sqrt(-GD_mas_P(GD_par_n_points) * GD_mas_V(GD_par_n_points))
+		cp = 0.81649! sqrt(-GD_mas_P(GD_par_n_points) * GD_mas_V(GD_par_n_points))
 		S1 = 0.5 * (cp * exp(-Ux**2/cp**2)/sqrtpi - Ux + Ux * erf(Ux/cp))
 		!print*, cp, Ux, S1 
 
@@ -1439,7 +1439,7 @@ module GD
 		print*, "Mu = ", mu1, mu2
 		
 		Ux = -2.5!! par_Velosity_inf
-		cp = 0.57735! sqrt(-GD_mas_P(GD_par_n_points) * GD_mas_V(GD_par_n_points))
+		cp = 0.81649! sqrt(-GD_mas_P(GD_par_n_points) * GD_mas_V(GD_par_n_points))
 		step = 1
 
 		call omp_set_num_threads(par_n_potok)
